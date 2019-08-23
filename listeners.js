@@ -90,6 +90,10 @@ enterGame.onclick = function() {
     var player = new Lantern(new Vector(Math.random() * 7 + 2.5, Math.random() * 10 + 2.5),5);
     game.players.push(player)
   }
+  if (hero.selectedIndex == 4) {
+    var player = new Pole(new Vector(Math.random() * 7 + 2.5, Math.random() * 10 + 2.5),5);
+    game.players.push(player)
+  }
   game.worlds[0].areas[0].load();
 }
 document.addEventListener("mousemove", Pos, false);

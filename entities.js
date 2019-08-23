@@ -105,7 +105,6 @@ class Player {
     this.energy = this.maxEnergy;
     this.regen = 1;
     this.vel = new Vector(0, 0);
-    this.acc = new Vector(0, 0);
     this.speedMultiplier = 1;
     this.radiusMultiplier = 1;
     this.die = false;
@@ -122,6 +121,8 @@ class Player {
     this.freezing = false;
     this.draining = false;
     this.slippery = false;
+    this.prevSlippery = false;
+    this.disabling = false;
     this.dyingPos = new Vector(0, 0);
     this.level = 1;
     this.points = 50;
@@ -130,70 +131,83 @@ class Player {
   }
   input(input) {
     if (input.keys) {
-      if (input.keys[16]) {
-        this.speedMultiplier /= 2;
-      }
-      if (input.keys[49]) {
-        if (this.speed < 17 && this.points > 0) {
-          this.speed += 0.5;
-          this.points--;
+      if (!this.prevSlippery||(this.vel.x==0&&this.vel.y==0)) {
+        if (this.slippery&&!this.prevSlippery) {
+          if (!(input.keys[87] || input.keys[38]||input.keys[65] || input.keys[37]||input.keys[83] || input.keys[40]||input.keys[68] || input.keys[39])) {
+            this.vel = new Vector(0,0);
+          }
         }
-      }
-      if (input.keys[50]) {
-        if (this.maxEnergy < 300 && this.points > 0) {
-          this.maxEnergy += 5;
-          this.points--;
+        if (input.keys[16]) {
+          this.speedMultiplier /= 2;
         }
-      }
-      if (input.keys[51]) {
-        if (this.regen < 7 && this.points > 0) {
-          this.regen += 0.4;
-          this.points--;
+        if (input.keys[49]) {
+          if (this.speed < 17 && this.points > 0) {
+            this.speed += 0.5;
+            this.points--;
+          }
         }
-      }
-      this.firstAbility = false;
-      this.secondAbility = false;
-      if ((input.keys[74] || input.keys[90]) && !this.firstAbilityPressed) {
-        this.firstAbility = true;
-        this.firstAbilityPressed = true;
-      }
-      if ((input.keys[75] || input.keys[88]) && !this.secondAbilityPressed) {
-        this.secondAbility = true;
-        this.secondAbilityPressed = true;
-      }
-      if (!(input.keys[74] || input.keys[90])) {
-        this.firstAbilityPressed = false;
-      }
-      if (!(input.keys[75] || input.keys[88])) {
-        this.secondAbilityPressed = false;
-      }
-      if (input.isMouse) {
-        var dirX = input.mouse.x - width / 2;
-        var dirY = input.mouse.y - height / 2;
-        var dist = distance(new Vector(0, 0), new Vector(dirX, dirY));
-        if (dist > 200) {
-          dirX = dirX * (200 / dist);
-          dirY = dirY * (200 / dist);
+        if (input.keys[50]) {
+          if (this.maxEnergy < 300 && this.points > 0) {
+            this.maxEnergy += 5;
+            this.points--;
+          }
         }
-        this.vel.x = dirX * this.speed / 200;
-        this.vel.y = dirY * this.speed / 200;
-      } else {
-        if (input.keys[87] || input.keys[38]) {
-          this.vel.y = -this.speed;
+        if (input.keys[51]) {
+          if (this.regen < 7 && this.points > 0) {
+            this.regen += 0.2;
+            this.points--;
+          }
         }
-        if (input.keys[65] || input.keys[37]) {
-          this.vel.x = -this.speed;
+        this.firstAbility = false;
+        this.secondAbility = false;
+        if ((input.keys[74] || input.keys[90]) && !this.firstAbilityPressed && !this.disabling) {
+          this.firstAbility = true;
+          this.firstAbilityPressed = true;
         }
-        if (input.keys[83] || input.keys[40]) {
-          this.vel.y = this.speed;
+        if ((input.keys[75] || input.keys[88]) && !this.secondAbilityPressed && !this.disabling) {
+          this.secondAbility = true;
+          this.secondAbilityPressed = true;
         }
-        if (input.keys[68] || input.keys[39]) {
-          this.vel.x = this.speed;
+        if (!(input.keys[74] || input.keys[90])) {
+          this.firstAbilityPressed = false;
+        }
+        if (!(input.keys[75] || input.keys[88])) {
+          this.secondAbilityPressed = false;
+        }
+        if (input.isMouse) {
+          var dirX = input.mouse.x - width / 2;
+          var dirY = input.mouse.y - height / 2;
+          var dist = distance(new Vector(0, 0), new Vector(dirX, dirY));
+          if (dist > 200) {
+            dirX = dirX * (200 / dist);
+            dirY = dirY * (200 / dist);
+          }
+          this.vel.x = dirX * this.speed / 200;
+          this.vel.y = dirY * this.speed / 200;
+        } else {
+          if (input.keys[87] || input.keys[38]) {
+            this.vel.y = -this.speed;
+          }
+          if (input.keys[65] || input.keys[37]) {
+            this.vel.x = -this.speed;
+          }
+          if (input.keys[83] || input.keys[40]) {
+            this.vel.y = this.speed;
+          }
+          if (input.keys[68] || input.keys[39]) {
+            this.vel.x = this.speed;
+          }
         }
       }
     }
   }
   update(time, friction) {
+    if (Math.abs(this.vel.x)<0.001) {
+      this.vel.x = 0;
+    }
+    if (Math.abs(this.vel.y)<0.001) {
+      this.vel.y = 0;
+    }
     this.radius = this.fixedRadius;
     this.radius *= this.radiusMultiplier;
     this.radiusMultiplier = 1;
@@ -227,16 +241,18 @@ class Player {
       this.pos.x += vel.x / 32 * timeFix;
       this.pos.y += vel.y / 32 * timeFix;
     }
-    var dim = (1 - friction);
     if (this.slippery) {
-      dim = 1;
+      friction = 0;
     }
+    this.prevSlippery = this.slippery;
+    var dim = (1 - friction);
     this.vel.x *= dim;
     this.vel.y *= dim;
     this.slowing = false;
     this.freezing = false;
     this.draining = false;
     this.slippery = false;
+    this.disabling = false;
     this.firstAbilityCooldown -= time;
     this.secondAbilityCooldown -= time;
     this.firstAbilityCooldown += (Math.abs(this.firstAbilityCooldown) - this.firstAbilityCooldown) / 2;
@@ -267,7 +283,7 @@ class Jotunn extends Player {
         }
       }
     }
-    if (this.secondAbility && this.energy > 30 && this.secondAbilityCooldown == 0) {
+    if (this.secondAbility && this.energy >= 30 && this.secondAbilityCooldown == 0) {
       this.energy -= 30;
       this.secondAbilityCooldown = 6000;
       for (var i in area.entities) {
@@ -396,6 +412,99 @@ class Lantern extends Player {
     }
   }
 }
+class Pole extends Player {
+  constructor(pos, speed) {
+    super(pos, 1, speed, "#955CF1");
+  }
+  abilities(time, area, offset) {
+    for (var i in area.entities) {
+      for (var j in area.entities[i]) {
+        var entity = area.entities[i][j];
+        if (distance(entity.pos, new Vector(this.pos.x - offset.x, this.pos.y - offset.y)) < (150 / 32) + entity.radius) {
+          if (!area.entities[i][j].imune) {
+            this.gravity = 4/32
+            var dx = entity.pos.x - (this.pos.x - offset.x);
+            var dy = entity.pos.y - (this.pos.y - offset.y);
+            var dist = distance(new Vector(0, 0), new Vector(dx, dy));
+            var attractionAmplitude = Math.pow(1.5, -(dist / (100 / 32)));
+            var moveDist = this.gravity * attractionAmplitude;
+            var angleToEnemy = Math.atan2(dy, dx);
+            entity.pos.x += (moveDist * Math.cos(angleToEnemy)) * (time / (1000 / 30))
+            entity.pos.y += (moveDist * Math.sin(angleToEnemy)) * (time / (1000 / 30))
+            entity.repelled = true;
+          }
+        }
+      }
+    }
+    if (this.secondAbility && this.energy >= 30 && this.secondAbilityCooldown == 0) {
+      this.energy -= 30;
+      this.secondAbilityCooldown = 6000;
+      var vx = 1;
+      var vy = 0;
+      var dist = distance(this.pos, this.previousPos);
+      if (dist !== 0) {
+        vx = (this.pos.x - this.previousPos.x) / dist;
+        vy = (this.pos.y - this.previousPos.y) / dist;
+      }
+      var pole = new monoPole(new Vector(this.pos.x - offset.x, this.pos.y - offset.y), new Vector(vx * 50, vy * 50), this.id);
+      area.addEntity("monoPole", pole)
+    }
+  }
+}
+class monoPole extends Entity {
+  constructor(pos, vel, id) {
+    super(pos, 2 / 5, null);
+    this.vel = new Vector(vel.x, vel.y);
+    this.friction = 0.125;
+    this.owner = id;
+    this.collide = true;
+    this.clock = 0;
+    this.gravity = 5/32;
+    this.a = 1;
+    this.color = "rgba(243,64,64," + this.a + ")";
+  }
+  colide(boundary) {
+    if (this.pos.x - this.radius < boundary.x) {
+      this.vel.x = Math.abs(this.vel.x);
+    }
+    if (this.pos.x + this.radius > boundary.x + boundary.w) {
+      this.vel.x = -Math.abs(this.vel.x);
+    }
+    if (this.pos.y - this.radius < boundary.y) {
+      this.vel.y = Math.abs(this.vel.y);
+    }
+    if (this.pos.y + this.radius > boundary.y + boundary.h) {
+      this.vel.y = -Math.abs(this.vel.y);
+    }
+  }
+  behavior(time, area, offset, players) {
+    this.clock += 1 * time / 1000;
+    if (this.clock > 2) {
+      this.a -= time / 800;
+      this.color = "rgba(243,64,64," + this.a + ")";
+    }
+    if (this.clock > 3) {
+      this.toRemove = true;
+    }
+    for (var i in area.entities) {
+      for (var j in area.entities[i]) {
+        var entity = area.entities[i][j];
+        if (distance(entity.pos, new Vector(this.pos.x, this.pos.y)) < (130 / 32) + entity.radius) {
+          if (!area.entities[i][j].imune) {
+            var dx = entity.pos.x - this.pos.x;
+            var dy = entity.pos.y - this.pos.y;
+            var dist = distance(new Vector(0, 0), new Vector(dx, dy));
+            var attractionAmplitude = Math.pow(0.5, -(dist / (100 / 32)));
+            var moveDist = this.gravity * attractionAmplitude;
+            var angleToEnemy = Math.atan2(dy, dx);
+            entity.pos.x -= (moveDist * Math.cos(angleToEnemy)) * (time / (1000 / 30))
+            entity.pos.y -= (moveDist * Math.sin(angleToEnemy)) * (time / (1000 / 30))
+          }
+        }
+      }
+    }
+  }
+}
 class Follower extends Entity {
   constructor(pos) {
     super(pos, 1.2, "rgba(0,200,0,0.1)");
@@ -409,7 +518,7 @@ class Follower extends Entity {
     }
     for (var i in area.entities) {
       for (var j in area.entities[i]) {
-        if (area.entities[i][j].isEnemy) {
+        if (area.entities[i][j].isEnemy && !area.entities[i][j].imune) {
           if (distance(this.pos, area.entities[i][j].pos) < this.radius + area.entities[i][j].fixedRadius) {
             area.entities[i][j].radiusMultiplier = 0.5;
           }
@@ -450,6 +559,7 @@ class Enemy extends Entity {
     let yvel = Math.sin(angle * Math.PI * 2) * speed;
     this.vel = new Vector(xvel, yvel);
     this.decayed = false;
+    this.repelled = false;
     this.shatterTime = 0;
     this.imune = false;
     this.isEnemy = true;
@@ -469,6 +579,7 @@ class Enemy extends Entity {
     this.vel.x *= dim;
     this.vel.y *= dim;
     this.decayed = false;
+    this.repelled = false;
     this.shatterTime -= time;
     if (this.shatterTime < 0) {
       this.shatterTime = 0;
@@ -843,6 +954,7 @@ class Teleporting extends Enemy {
     this.vel.x *= dim;
     this.vel.y *= dim;
     this.decayed = false;
+    this.repelled = false;
   }
   behavior(time, area, offset, players) {
     this.clock += time
@@ -904,6 +1016,11 @@ class IceSniperBullet extends Entity {
 class Disabling extends Enemy {
   constructor(pos, radius, speed) {
     super(pos, entityTypes.indexOf("disabling") - 1, radius, speed, "#a87c86", true, "rgba(255, 191, 206, 0.5)", 150 / 32);
+  }
+  auraEffect(player, worldPos, time) {
+    if (distance(player.pos, new Vector(this.pos.x + worldPos.x, this.pos.y + worldPos.y)) < player.radius + this.auraSize) {
+     player.disabling = true; 
+    }
   }
 }
 class Icicle extends Enemy {

@@ -199,6 +199,10 @@ function renderSecondEntities(area, players, focus) {
             context.fillStyle = "rgba(0, 0, 128, 0.2)"
             context.fill();
           }
+          if (entities[i][j].repelled) {
+            context.fillStyle = "rgba(255, 230, 200, 0.5)"
+            context.fill();
+          }
           if (entities[i][j].outline) {
             context.stroke()
           }

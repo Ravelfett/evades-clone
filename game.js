@@ -481,6 +481,9 @@ class Area {
     boundary.x += worldPos.x;
     boundary.y += worldPos.y;
     var fixed = closestPointToRectangle(player.pos, new Vector(boundary.x + player.radius, boundary.y + player.radius), new Vector(boundary.w - player.radius * 2, boundary.h - player.radius * 2));
+    if (Math.abs(fixed.x-player.pos.x)+Math.abs(fixed.y-player.pos.y)!==0) {
+      player.vel = new Vector(0,0);
+    }
     player.pos.x = fixed.x;
     player.pos.y = fixed.y;
   }
